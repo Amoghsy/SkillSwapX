@@ -1,4 +1,4 @@
-# SkillSwap X — PHP Backend
+# SkillSwap X — PHP, Python and React
 
 Complete REST API backend for the SkillSwap X platform. Built in **PHP 8.1** with a **MySQL 8.0** database, zero external PHP dependencies.
 
