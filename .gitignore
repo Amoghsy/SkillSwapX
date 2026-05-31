@@ -1,0 +1,58 @@
+# IDE and OS specific
+.vscode/
+.idea/
+.DS_Store
+nbproject/
+*.sublime-project
+*.sublime-workspace
+
+# PHP dependencies (Composer)
+/vendor/
+.env
+# Python
+/ai-service/.venv/
+/ai-service/__pycache__/
+/ai-service/*.pyc
+/ai-service/data/
+*.py[cod]
+*$py.class
+
+# Frontend (Node.js/Vite/Bun)
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.DS_Store
+/frontend/.env.local
+/frontend/.env.*.local
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+/frontend/pnpm-debug.log*
+/frontend/wrangler.jsonc.env
+/frontend/.wrangler/
+
+# Sensitive configuration files
+/config/config.php
+/config/database.php
+
+# Uploads
+/uploads/
+
+# Logs
+*.log
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Brain directory
+/brain/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
