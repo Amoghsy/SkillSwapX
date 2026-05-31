@@ -109,6 +109,8 @@ await swaps.create({
 | POST | `/api/auth/login` | — | Login, returns JWT + refresh token |
 | POST | `/api/auth/refresh` | — | Rotate refresh token |
 | POST | `/api/auth/logout` | ✓ | Invalidate refresh token |
+| POST | `/api/auth/google` | — | Verify a Google Identity Services ID token |
+| POST | `/api/auth/github` | — | Exchange a GitHub authorization code and verify profile |
 | GET | `/api/users/me` | ✓ | Get own profile + skills |
 | PUT | `/api/users/me` | ✓ | Update profile / change password |
 | GET | `/api/users/:id/profile` | — | Public profile |

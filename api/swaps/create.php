@@ -29,13 +29,13 @@ $recv = $db->prepare('SELECT id FROM users WHERE id = ? AND is_active = 1');
 $recv->execute([$receiverId]);
 if (!$recv->fetch()) json_error('Receiver not found', 404);
 
-// Check for existing pending request between these two users
+// Check for existing pending request between these two users for the same skill
 $dup = $db->prepare(
     'SELECT id FROM swap_requests
-     WHERE sender_id = ? AND receiver_id = ? AND status = "pending"'
+     WHERE sender_id = ? AND receiver_id = ? AND skill_requested_id = ? AND status = "pending"'
 );
-$dup->execute([$senderId, $receiverId]);
-if ($dup->fetch()) json_error('You already have a pending request with this user', 409);
+$dup->execute([$senderId, $receiverId, (int)$body['skill_requested_id']]);
+if ($dup->fetch()) json_error('You already have a pending request for this skill with this user. Wait for them to respond or cancel the existing request first.', 409);
 
 // ── Determine mode and credit cost ─────────────────────────────
 // Mode A: Barter       — skill_offered_id provided  → free (0 credits)

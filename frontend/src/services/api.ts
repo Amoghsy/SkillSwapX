@@ -76,11 +76,9 @@ export const auth = {
     email: string,
     password: string | null,
     location: string,
-    oauth_provider: string | null = null,
-    oauth_id: string | null = null,
-    avatar_url: string | null = null
+    onboarding_token: string | null = null
   ) =>
-    request('/auth/register', { method: 'POST', body: JSON.stringify({ name, username, email, password, location, oauth_provider, oauth_id, avatar_url }) })
+    request('/auth/register', { method: 'POST', body: JSON.stringify({ name, username, email, password, location, onboarding_token }) })
       .then(d => { setTokens(d.access_token, d.refresh_token); return d; }),
 
   login: (username, password) =>
@@ -101,8 +99,8 @@ export const auth = {
     request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) })
       .then(d => { if (d.exists) setTokens(d.access_token, d.refresh_token); return d; }),
 
-  github: (code, profile) =>
-    request('/auth/github', { method: 'POST', body: JSON.stringify({ code, profile }) })
+  github: (code, redirect_uri, code_verifier) =>
+    request('/auth/github', { method: 'POST', body: JSON.stringify({ code, redirect_uri, code_verifier }) })
       .then(d => { if (d.exists) setTokens(d.access_token, d.refresh_token); return d; }),
 };
 
@@ -180,5 +178,5 @@ export const users = {
 
 // ── Roadmap ───────────────────────────────────────────────────
 export const roadmap = {
-  generate: (goal) => request(`/roadmap/generate?goal=${encodeURIComponent(goal)}`),
+  generate: (goal?: string) => request('/roadmap/generate' + (goal ? '?' + new URLSearchParams({ goal }) : '')),
 };

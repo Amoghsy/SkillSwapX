@@ -8,14 +8,29 @@ require_once __DIR__ . '/../../helpers/response.php';
 require_once __DIR__ . '/../../helpers/jwt.php';
 
 $body = get_json_body();
+$onboardingToken = trim((string)($body['onboarding_token'] ?? ''));
+$socialProfile = null;
+
+if ($onboardingToken !== '') {
+    try {
+        $socialProfile = JWT::decode($onboardingToken);
+    } catch (RuntimeException) {
+        json_error('Social signup session is invalid or expired. Please authenticate again.', 401);
+    }
+    if (($socialProfile['purpose'] ?? '') !== 'social_onboarding') {
+        json_error('Social signup session is invalid', 401);
+    }
+    $body['email'] = $socialProfile['email'];
+}
+
 $rules = [
     'name'     => 'required|min:2|max:100',
     'username' => 'required|min:3|max:50',
     'email'    => 'required|email',
 ];
 
-$isOAuth = !empty($body['oauth_provider']);
-if (!$isOAuth || isset($body['password'])) {
+$isSocial = $socialProfile !== null;
+if (!$isSocial) {
     $rules['password'] = 'required|min:8|max:100';
 }
 
@@ -37,7 +52,7 @@ if ($stmt->fetch()) {
     json_error('Username already taken', 409);
 }
 
-if ($isOAuth && !isset($body['password'])) {
+if ($isSocial) {
     $hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT, ['cost' => 12]);
 } else {
     $hash = password_hash($body['password'], PASSWORD_BCRYPT, ['cost' => 12]);
@@ -52,9 +67,9 @@ $stmt->execute([
     strtolower(trim($body['email'])),
     $hash,
     $body['location'] ?? null,
-    $body['oauth_provider'] ?? null,
-    $body['oauth_id'] ?? null,
-    $body['avatar_url'] ?? null,
+    $socialProfile['provider'] ?? null,
+    $socialProfile['provider_id'] ?? null,
+    $socialProfile['avatar_url'] ?? null,
 ]);
 $userId = (int)$db->lastInsertId();
 

@@ -19,6 +19,7 @@ type SwapMode = "barter" | "video" | "direct";
 export function SkillCard({ skill }: { skill: any }) {
   const user    = useApp((s) => s.user);
   const setUser = useApp((s) => s.setUser);
+  const bumpSwapRefresh = useApp((s) => s.bumpSwapRefresh);
   const navigate = useNavigate();
 
   // Modal state
@@ -149,6 +150,9 @@ export function SkillCard({ skill }: { skill: any }) {
       // Refresh user credits
       const updatedUser = await authApi.me();
       if (updatedUser) setUser({ ...user!, credits: parseInt(updatedUser.credits) || 0 });
+
+      // Signal dashboard / other listeners to re-fetch swap data
+      bumpSwapRefresh();
 
       setShowModal(false);
       setMessage("");

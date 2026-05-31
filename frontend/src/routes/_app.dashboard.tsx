@@ -24,6 +24,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 function Dashboard() {
   const user = useApp((s) => s.user);
+  const swapRefreshTick = useApp((s) => s.swapRefreshTick);
   const ticker = useTicker(3000);
   const [mounted, setMounted] = useState(false);
   
@@ -131,7 +132,7 @@ function Dashboard() {
     if (user?.id) {
       loadDashboardData();
     }
-  }, [user]);
+  }, [user, swapRefreshTick]);
 
   if (!user) return null;
 

@@ -17,6 +17,7 @@ FLUSH PRIVILEGES;
 CREATE TABLE users (
     id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name                VARCHAR(100)  NOT NULL,
+    username            VARCHAR(50)   NOT NULL UNIQUE,
     email               VARCHAR(150)  NOT NULL UNIQUE,
     password_hash       VARCHAR(255)  NOT NULL,
     bio                 TEXT,
@@ -36,6 +37,7 @@ CREATE TABLE users (
     created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email      (email),
+    UNIQUE KEY uq_oauth_identity (oauth_provider, oauth_id),
     INDEX idx_location   (latitude, longitude),
     INDEX idx_trust_tier (trust_tier)
 );

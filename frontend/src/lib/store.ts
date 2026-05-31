@@ -37,6 +37,9 @@ type AppState = {
   setUser: (user: UserType | null) => void;
   setNotifications: (notifications: Notification[]) => void;
   setCredits: (credits: number) => void;
+  /** Bump this to signal that swap data should be re-fetched everywhere */
+  swapRefreshTick: number;
+  bumpSwapRefresh: () => void;
 };
 
 export const useApp = create<AppState>((set) => ({
@@ -49,4 +52,6 @@ export const useApp = create<AppState>((set) => ({
   setUser: (user) => set(() => ({ user, credits: user ? user.credits : 0 })),
   setNotifications: (notifications) => set(() => ({ notifications })),
   setCredits: (credits) => set(() => ({ credits })),
+  swapRefreshTick: 0,
+  bumpSwapRefresh: () => set((s) => ({ swapRefreshTick: s.swapRefreshTick + 1 })),
 }));
