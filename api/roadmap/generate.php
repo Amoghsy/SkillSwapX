@@ -12,54 +12,58 @@ $db      = Database::getInstance();
 $userId  = (int)$payload['sub'];
 
 $goal = isset($_GET['goal']) ? trim($_GET['goal']) : '';
+$source = isset($_GET['source']) ? trim($_GET['source']) : 'recent_swaps';
 $recentSkills = [];
 
+if (!in_array($source, ['recent_swaps', 'my_skills'], true)) {
+    json_error('Invalid roadmap source', 400);
+}
+
 if (empty($goal)) {
-    // A sender receives the requested skill; a receiver receives the offered skill.
-    $stmt = $db->prepare(
-        'SELECT CASE
-                    WHEN sr.sender_id = ? THEN req_skill.skill_name
-                    WHEN sr.receiver_id = ? THEN off_skill.skill_name
-                END AS learned_skill
-         FROM swap_requests sr
-         JOIN skills req_skill ON req_skill.id = sr.skill_requested_id
-         LEFT JOIN skills off_skill ON off_skill.id = sr.skill_offered_id
-         WHERE (sr.sender_id = ? OR sr.receiver_id = ?)
-           AND sr.status IN ("accepted", "completed")
-         ORDER BY sr.created_at DESC
-         LIMIT 5'
-    );
-    $stmt->execute([$userId, $userId, $userId, $userId]);
+    if ($source === 'recent_swaps') {
+        // A sender receives the requested skill; a receiver receives the offered skill.
+        $stmt = $db->prepare(
+            'SELECT CASE
+                        WHEN sr.sender_id = ? THEN req_skill.skill_name
+                        WHEN sr.receiver_id = ? THEN off_skill.skill_name
+                    END AS learned_skill
+             FROM swap_requests sr
+             JOIN skills req_skill ON req_skill.id = sr.skill_requested_id
+             LEFT JOIN skills off_skill ON off_skill.id = sr.skill_offered_id
+             WHERE (sr.sender_id = ? OR sr.receiver_id = ?)
+               AND sr.status IN ("accepted", "completed")
+             ORDER BY sr.updated_at DESC
+             LIMIT 5'
+        );
+        $stmt->execute([$userId, $userId, $userId, $userId]);
 
-    foreach ($stmt->fetchAll() as $swap) {
-        $skill = trim((string)($swap['learned_skill'] ?? ''));
-        if ($skill !== '' && !in_array($skill, $recentSkills, true)) {
-            $recentSkills[] = $skill;
+        foreach ($stmt->fetchAll() as $swap) {
+            addUniqueSkill($recentSkills, $swap['learned_skill'] ?? '');
         }
-    }
-
-    // Fallback: Check what the user has listed they want to learn
-    if (empty($recentSkills)) {
+    } else {
         $stmt = $db->prepare(
             'SELECT s.skill_name FROM user_skills us
              JOIN skills s ON s.id = us.skill_id
-             WHERE us.user_id = ? AND us.type = "learn" AND us.is_active = 1'
+             WHERE us.user_id = ? AND us.is_active = 1
+             ORDER BY CASE WHEN us.type = "learn" THEN 0 ELSE 1 END, us.created_at DESC
+             LIMIT 5'
         );
         $stmt->execute([$userId]);
         foreach ($stmt->fetchAll() as $row) {
-            $skill = trim((string)$row['skill_name']);
-            if ($skill !== '' && !in_array($skill, $recentSkills, true)) {
-                $recentSkills[] = $skill;
-            }
+            addUniqueSkill($recentSkills, $row['skill_name'] ?? '');
         }
     }
 
     if (empty($recentSkills)) {
-        json_error('Add a skill you want to learn in your profile, complete a swap, or enter a custom goal above to generate a roadmap.', 422);
+        $message = $source === 'recent_swaps'
+            ? 'No accepted or completed swaps found yet. Refresh from My Skills or enter a custom goal above.'
+            : 'Add a skill to your profile or enter a custom goal above to generate a roadmap.';
+        json_error($message, 422);
     }
 
     $goal = implode(', ', $recentSkills);
 } else {
+    $source = 'custom_goal';
     $recentSkills = [$goal];
 }
 
@@ -77,10 +81,12 @@ $context = stream_context_create([
 $response = @file_get_contents($aiUrl, false, $context);
 
 if ($response === false) {
+    $growthProjection = buildGrowthProjection($db, $userId, 30, 12);
     json_success([
         'goal'                  => $goal,
         'source_skills'         => $recentSkills,
-        'based_on_recent_swaps' => true,
+        'source'                => $source,
+        'based_on_recent_swaps' => $source === 'recent_swaps',
         'milestones' => [
             [
                 'step' => 1,
@@ -109,6 +115,7 @@ if ($response === false) {
         ],
         'total_credits_needed' => 30,
         'estimated_weeks'      => 12,
+        'growth_projection'    => $growthProjection,
         'note'                 => 'AI service offline - generated local template roadmap',
     ]);
 }
@@ -117,6 +124,52 @@ $data = json_decode($response, true);
 if (!$data) json_error('AI service returned invalid response', 502);
 
 $data['source_skills'] = $recentSkills;
-$data['based_on_recent_swaps'] = true;
+$data['source'] = $source;
+$data['based_on_recent_swaps'] = $source === 'recent_swaps';
+$data['growth_projection'] = buildGrowthProjection(
+    $db,
+    $userId,
+    (int)($data['total_credits_needed'] ?? 30),
+    (int)($data['estimated_total_weeks'] ?? 12)
+);
 json_success($data);
 
+function addUniqueSkill(array &$skills, mixed $value): void
+{
+    $skill = trim((string)$value);
+    if ($skill !== '' && !in_array($skill, $skills, true)) {
+        $skills[] = $skill;
+    }
+}
+
+function buildGrowthProjection(PDO $db, int $userId, int $totalCredits, int $estimatedWeeks): array
+{
+    $stmt = $db->prepare(
+        'SELECT
+            (SELECT COUNT(*) FROM user_skills WHERE user_id = ? AND type = "learn" AND is_active = 1) AS learning_skills,
+            (SELECT COUNT(*) FROM sessions WHERE learner_id = ? AND attendance = "completed") AS completed_sessions,
+            (SELECT COUNT(*) FROM swap_requests
+             WHERE (sender_id = ? OR receiver_id = ?) AND status IN ("accepted", "completed")) AS active_swaps'
+    );
+    $stmt->execute([$userId, $userId, $userId, $userId]);
+    $activity = $stmt->fetch() ?: [];
+
+    $baseline = min(
+        70,
+        20
+        + ((int)($activity['learning_skills'] ?? 0) * 3)
+        + ((int)($activity['completed_sessions'] ?? 0) * 5)
+        + ((int)($activity['active_swaps'] ?? 0) * 2)
+    );
+    $monthlyGain = max(2.5, min(7.5, ($totalCredits / max(1, $estimatedWeeks)) * 1.6));
+    $projection = [];
+
+    for ($month = 1; $month <= 12; $month++) {
+        $projection[] = [
+            'month' => "M{$month}",
+            'skill' => min(100, (int)round($baseline + ($monthlyGain * $month))),
+        ];
+    }
+
+    return $projection;
+}

@@ -178,5 +178,6 @@ export const users = {
 
 // ── Roadmap ───────────────────────────────────────────────────
 export const roadmap = {
-  generate: (goal?: string) => request('/roadmap/generate' + (goal ? '?' + new URLSearchParams({ goal }) : '')),
+  generate: (goal?: string, source = 'recent_swaps') =>
+    request('/roadmap/generate?' + new URLSearchParams(goal ? { goal } : { source })),
 };

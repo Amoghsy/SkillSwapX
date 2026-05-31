@@ -20,11 +20,6 @@ import { GlassCard } from "@/components/GlassCard";
 import { TopNav } from "@/components/TopNav";
 import { roadmap as roadmapApi } from "@/services/api";
 
-const growthData = Array.from({ length: 12 }, (_, index) => ({
-  m: `M${index + 1}`,
-  skill: 30 + index * 6 + Math.round(Math.random() * 6),
-}));
-
 type Milestone = {
   step?: number;
   skill?: string;
@@ -39,6 +34,12 @@ type RoadmapResponse = {
   goal?: string;
   source_skills?: string[];
   milestones?: Milestone[];
+  growth_projection?: GrowthPoint[];
+};
+
+type GrowthPoint = {
+  month: string;
+  skill: number;
 };
 
 function errorMessage(error: unknown) {
@@ -62,18 +63,22 @@ function AICenter() {
   const [goal, setGoal] = useState("");
   const [sourceSkills, setSourceSkills] = useState<string[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [growthData, setGrowthData] = useState<GrowthPoint[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingSource, setLoadingSource] = useState("");
   const [error, setError] = useState("");
   const [customGoal, setCustomGoal] = useState("");
 
-  const fetchRoadmap = useCallback(async (selectedGoal?: string) => {
+  const fetchRoadmap = useCallback(async (selectedGoal?: string, source = "recent_swaps") => {
     setLoading(true);
+    setLoadingSource(selectedGoal ? "custom_goal" : source);
     setError("");
     try {
-      const response = (await roadmapApi.generate(selectedGoal)) as RoadmapResponse;
+      const response = (await roadmapApi.generate(selectedGoal, source)) as RoadmapResponse;
       setGoal(response?.goal || "");
       setSourceSkills(response?.source_skills || []);
       setMilestones(response?.milestones || []);
+      setGrowthData(response?.growth_projection || []);
       if (selectedGoal) {
         setCustomGoal("");
       }
@@ -81,9 +86,11 @@ function AICenter() {
       setGoal("");
       setSourceSkills([]);
       setMilestones([]);
+      setGrowthData([]);
       setError(errorMessage(requestError));
     } finally {
       setLoading(false);
+      setLoadingSource("");
     }
   }, []);
 
@@ -146,15 +153,28 @@ function AICenter() {
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => void fetchRoadmap()}
+                onClick={() => void fetchRoadmap(undefined, "recent_swaps")}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-white/10 disabled:opacity-50 cursor-pointer"
               >
-                {loading && !customGoal ? (
+                {loadingSource === "recent_swaps" ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <Sparkles className="size-4" />
                 )}
                 Refresh from recent swaps
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void fetchRoadmap(undefined, "my_skills")}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-white/10 disabled:opacity-50 cursor-pointer"
+              >
+                {loadingSource === "my_skills" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Target className="size-4" />
+                )}
+                Refresh from My Skills
               </button>
               {sourceSkills.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -274,7 +294,7 @@ function AICenter() {
                     vertical={false}
                   />
                   <XAxis
-                    dataKey="m"
+                    dataKey="month"
                     tick={{ fill: "oklch(0.7 0.02 250)", fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
@@ -296,6 +316,11 @@ function AICenter() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+            {!growthData.length && (
+              <p className="text-center text-xs text-muted-foreground">
+                Load a roadmap to see your backend projection.
+              </p>
+            )}
           </GlassCard>
         </div>
 
