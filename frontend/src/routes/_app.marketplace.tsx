@@ -50,7 +50,17 @@ function Marketplace() {
         if (!active) return;
         
         if (searchData && searchData.results) {
-          setResults(searchData.results);
+          // Deduplicate by user_id to prevent duplicate profiles
+          const unique: any[] = [];
+          const seen = new Set();
+          for (const item of searchData.results) {
+            const uid = String(item.user_id);
+            if (!seen.has(uid)) {
+              seen.add(uid);
+              unique.push(item);
+            }
+          }
+          setResults(unique);
         } else {
           setResults([]);
         }
@@ -69,9 +79,19 @@ function Marketplace() {
 
   // Fetch trending
   useEffect(() => {
-    skills.search({ limit: 4 }).then((data: any) => {
+    skills.search({ limit: 15 }).then((data: any) => {
       if (data && data.results) {
-        setTrending(data.results.slice(0, 4));
+        // Deduplicate by user_id to prevent duplicate profiles
+        const unique: any[] = [];
+        const seen = new Set();
+        for (const item of data.results) {
+          const uid = String(item.user_id);
+          if (!seen.has(uid)) {
+            seen.add(uid);
+            unique.push(item);
+          }
+        }
+        setTrending(unique.slice(0, 4));
       }
     }).catch((err: any) => console.error("Failed to load trending skills:", err));
   }, []);

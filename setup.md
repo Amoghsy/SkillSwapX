@@ -112,3 +112,9 @@ The frontend is a React application built with Vite.
 -   **React Frontend**: Running at `http://localhost:5173`.
 
 You should now have the complete development environment up and running.
+
+
+
+## Commands to Run:  --- in api/ai-service
+source .venv/Scripts/activate  
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload

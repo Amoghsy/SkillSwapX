@@ -8,7 +8,7 @@ import {
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useApp } from "@/lib/store";
 import { skills as skillsApi, swaps as swapsApi, auth as authApi, uploads as uploadsApi } from "@/services/api";
 import { toast } from "sonner";
@@ -42,6 +42,7 @@ export function SkillCard({ skill }: { skill: any }) {
   // Common state
   const [message, setMessage]       = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pendingSwaps, setPendingSwaps] = useState<any[]>([]);
 
   const mentor = {
     id:     String(skill.user_id || skill.mentorId || ""),
@@ -51,6 +52,12 @@ export function SkillCard({ skill }: { skill: any }) {
     trust:  parseFloat(skill.trust_score) || 50,
     online: true,
   };
+
+  const isPending = pendingSwaps.some(
+    (s) =>
+      String(s.receiver_id) === String(mentor.id) &&
+      String(s.skill_requested_id) === String(skill.skill_id || skill.id)
+  );
 
   if (!mentor.id) return null;
 
@@ -62,6 +69,20 @@ export function SkillCard({ skill }: { skill: any }) {
   const reviews  = skill.reviews || 16;
   const rate     = skill.credit_rate || skill.rate;
   const trending = !!skill.trending;
+
+  useEffect(() => {
+    const fetchSwaps = async () => {
+      if (!user) return;
+      try {
+        const swaps = await swapsApi.list();
+        const userSentSwaps = swaps.sent || [];
+        setPendingSwaps(userSentSwaps.filter((s: any) => s.status === 'pending'));
+      } catch (error) {
+        console.error("Failed to fetch pending swaps", error);
+      }
+    };
+    fetchSwaps();
+  }, [user, showModal]);
 
   const creditCost = mode === "direct" ? (rate || 5) : 0;
 
@@ -238,8 +259,8 @@ export function SkillCard({ skill }: { skill: any }) {
             <div className="font-display text-lg font-semibold text-gradient">{rate}</div>
           </div>
         </div>
-        <Button onClick={handleOpenModal} variant="secondary" className="w-full bg-white/5 hover:bg-white/10 cursor-pointer">
-          Request swap
+        <Button onClick={handleOpenModal} variant="secondary" className="w-full bg-white/5 hover:bg-white/10 cursor-pointer" disabled={isPending}>
+          {isPending ? "Pending request" : "Request swap"}
         </Button>
       </GlassCard>
 
